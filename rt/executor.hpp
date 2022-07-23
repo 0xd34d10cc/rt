@@ -9,75 +9,10 @@
 #include "handle.hpp"
 #include "cpu_context.hpp"
 #include "io_queue.hpp"
+#include "task.hpp"
 
 
 namespace rt {
-
-class Executor;
-
-namespace detail {
-
-struct BaseTaskFn {
-  virtual void call() = 0;
-  virtual ~BaseTaskFn() {};
-};
-
-template <typename F>
-struct TaskFnImpl : BaseTaskFn, F {
-  template <typename Param>
-  TaskFnImpl(Param&& f) : F(std::forward<Param>(f)) {}
-  virtual void call() override { F::operator()(); }
-};
-
-struct Task {
-  static constexpr std::uint64_t STACK_SIZE = 1024 * 32;
-
-  CpuContext context{};
-  std::size_t fn_size{0};
-  char* stack{nullptr};
-
-  Executor* owner{nullptr};
-  Task* next{nullptr};
-
-  ~Task() { clear(); }
-
-  BaseTaskFn* fn_ptr(std::size_t off) const {
-    auto* p = stack + STACK_SIZE - off;
-    return reinterpret_cast<BaseTaskFn*>(p);
-  }
-
-  void call() {
-    assert(fn_size > 0);
-    auto* p = fn_ptr(fn_size);
-    p->call();
-  }
-
-  void clear() {
-    if (fn_size > 0) {
-      auto* p = fn_ptr(fn_size);
-      std::destroy_at(p);
-      fn_size = 0;
-    }
-  }
-
-  template <typename F>
-  void set(F&& fn) {
-    using FnValue = TaskFnImpl<std::decay_t<F>>;
-    constexpr std::size_t off = sizeof(FnValue);
-    static_assert(off <= STACK_SIZE, "Too big to fit");
-    assert(stack);
-    clear();
-    // FIXME: align p according to alignof(FnValue)
-    auto* p = fn_ptr(off);
-    std::construct_at(reinterpret_cast<FnValue*>(p), std::forward<F>(fn));
-    fn_size = off;
-  }
-
-  void finalize();
-  void yield();
-  std::error_code register_io(Handle h);
-  void block_on_io();
-};
 
 struct TaskList {
   Task* first{nullptr};
@@ -122,9 +57,6 @@ struct TaskList {
 
 Task* current_task();
 
-}  // namespace detail
-
-
 class Executor {
  public:
   Executor(IoQueue queue);
@@ -143,30 +75,30 @@ class Executor {
   }
   void run();
 
-  friend struct detail::Task;
+  friend struct Task;
 
  private:
   CpuContext* main();
 
-  void run_task(detail::Task* task);
-  void init_task(detail::Task* task);
+  void run_task(Task* task);
+  void init_task(Task* task);
 
-  detail::Task* allocate_task();
-  void release_task(detail::Task* task);
+  Task* allocate_task();
+  void release_task(Task* task);
 
   IoQueue m_queue;
   std::size_t m_io_blocked{0};
   CpuContext m_main{};
-  detail::TaskList m_freelist{}; // cached free tasks
-                                 // TODO: add a limit to how many tasks can be cached
-  detail::TaskList m_ready{};    // ready tasks
+  TaskList m_freelist{}; // cached free tasks
+                         // TODO: add a limit to how many tasks can be cached
+  TaskList m_ready{};    // ready tasks
 };
 
 void yield();
 
 template <typename F>
 void spawn(F&& fn) {
-  auto* task = detail::current_task();
+  auto* task = current_task();
   task->owner->spawn(std::forward<F>(fn));
 }
 

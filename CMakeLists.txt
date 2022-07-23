@@ -13,7 +13,13 @@ add_executable(rt
   rt/executor.hpp
   rt/executor.cpp
   rt/io_queue.hpp
- "rt/handle.hpp" "rt/io_queue.cpp" "rt/result.hpp" "rt/socket.hpp" "rt/socket.cpp")
+  rt/handle.hpp
+  rt/io_queue.cpp
+  rt/result.hpp
+  rt/socket.hpp
+  rt/socket.cpp
+  rt/task.hpp
+)
 
 target_include_directories(rt PRIVATE .)
 

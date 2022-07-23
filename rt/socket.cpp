@@ -81,7 +81,7 @@ Result<Socket> Socket::create() noexcept {
 
 std::error_code Socket::lazy_register() noexcept {
   if (!m_bound) {
-    if (auto e = detail::current_task()->register_io(handle())) {
+    if (auto e = current_task()->register_io(handle())) {
       return e;
     }
 
@@ -149,13 +149,13 @@ Result<Socket> Socket::accept() noexcept {
     }
   }
 
-  auto* task = detail::current_task();
+  auto* task = current_task();
   TRACE_BLOCK;
   task->block_on_io();
   assert(overlapped.Internal != STATUS_PENDING);
   if (overlapped.Internal != 0) {
     // FIXME: this is probably not a valid way to pass an error
-    return socket_error(overlapped.Internal);
+    return socket_error(static_cast<DWORD>(overlapped.Internal));
   }
 
   if (::setsockopt(client->m_socket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
@@ -186,13 +186,13 @@ Result<std::size_t> Socket::send(const char* data, std::size_t n) noexcept {
     }
   }
 
-  auto* task = detail::current_task();
+  auto* task = current_task();
   TRACE_BLOCK;
   task->block_on_io();
   assert(overlapped.Internal != STATUS_PENDING);
   if (overlapped.Internal != 0) {
     // FIXME: this is probably not a valid way to pass an error
-    return socket_error(overlapped.Internal);
+    return socket_error(static_cast<DWORD>(overlapped.Internal));
   }
 
   return std::size_t{overlapped.InternalHigh};
@@ -237,13 +237,13 @@ Result<std::size_t> Socket::recv(char* data, std::size_t n) noexcept {
     }
   }
 
-  auto* task = detail::current_task();
+  auto* task = current_task();
   TRACE_BLOCK;
   task->block_on_io();
   assert(overlapped.Internal != STATUS_PENDING);
   if (overlapped.Internal != 0) {
     // FIXME: this is probably not a valid way to pass an error
-    return socket_error(overlapped.Internal);
+    return socket_error(static_cast<DWORD>(overlapped.Internal));
   }
 
   return std::size_t{overlapped.InternalHigh};
@@ -265,13 +265,13 @@ std::error_code Socket::shutdown() noexcept {
     }
   }
 
-  auto* task = detail::current_task();
+  auto* task = current_task();
   TRACE_BLOCK;
   task->block_on_io();
   assert(overlapped.Internal != STATUS_PENDING);
   if (overlapped.Internal != 0) {
     // FIXME: this is probably not a valid way to pass an error
-    return socket_error(overlapped.Internal);
+    return socket_error(static_cast<DWORD>(overlapped.Internal));
   }
   return {};
 }

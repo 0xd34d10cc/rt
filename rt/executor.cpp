@@ -7,8 +7,6 @@ void rt_task_trampoline();
 
 namespace rt {
 
-namespace detail {
-
 thread_local Task* CURRENT_TASK{nullptr};
 
 Task* current_task() { return CURRENT_TASK; }
@@ -41,14 +39,12 @@ void Task::block_on_io() {
   rt_cpu_context_swap(&context, owner->main());
 }
 
-}
-
 void yield() {
-  auto* task = detail::CURRENT_TASK;
+  auto* task = CURRENT_TASK;
   task->yield();
 }
 
-void task_main(detail::Task* task) {
+void task_main(Task* task) {
   task->call();
   task->finalize();
 }
@@ -56,7 +52,7 @@ void task_main(detail::Task* task) {
 Executor::Executor(IoQueue queue) : m_queue(std::move(queue)) {}
 
 Executor::~Executor() {
-  const auto free_task = [](detail::Task* task) {
+  const auto free_task = [](Task* task) {
     if (task->stack) {
       std::free(task->stack);
     }
@@ -91,7 +87,7 @@ void Executor::run() {
     assert(n != 0);
     for (std::size_t i = 0; i < n; ++i) {
       --m_io_blocked;
-      auto* task = reinterpret_cast<detail::Task*>(events[i].context);
+      auto* task = reinterpret_cast<Task*>(events[i].context);
       run_task(task);
     }
   }
@@ -99,17 +95,17 @@ void Executor::run() {
 
 CpuContext* Executor::main() { return &m_main; }
 
-void Executor::release_task(detail::Task* task) {
-  task->clear();
+void Executor::release_task(Task* task) {
+  task->reset();
   m_freelist.push_front(task);
 }
 
-void Executor::run_task(detail::Task* task) {
-  detail::CURRENT_TASK = task;
+void Executor::run_task(Task* task) {
+  CURRENT_TASK = task;
   rt_cpu_context_swap(&m_main, &task->context);
 }
 
-void Executor::init_task(detail::Task* task) {
+void Executor::init_task(Task* task) {
   task->owner = this;
   auto stack_base = reinterpret_cast<std::uint64_t>(task->fn_ptr(task->fn_size));
   // align down by 16
@@ -126,11 +122,11 @@ void Executor::init_task(detail::Task* task) {
   task->context.rip = reinterpret_cast<std::uint64_t>(&rt_task_trampoline);
 }
 
-detail::Task* Executor::allocate_task() {
+Task* Executor::allocate_task() {
   auto* task = m_freelist.pop_front();
   if (!task) {
-    task = new detail::Task{};
-    task->stack = reinterpret_cast<char*>(std::malloc(detail::Task::STACK_SIZE));
+    task = new Task{};
+    task->stack = reinterpret_cast<char*>(std::malloc(Task::STACK_SIZE));
   }
 
   return task;

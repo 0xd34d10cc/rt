@@ -14,12 +14,7 @@ struct CompletionEvent {
   void* context{nullptr};
 };
 
-// on windows:
-// 1. Register IO object on creation
-// 2. try doing op(), if err != PENDING => return result, err
-//    otherwise call scheduler
-// on linux:
-// 1. send op() to io queue and call scheduler
+// TODO: rename to IoEngine
 class IoQueue {
  public:
   IoQueue() = default;
@@ -31,8 +26,17 @@ class IoQueue {
 
   static Result<IoQueue> create();
 
-  // Add a handle to IO queue
+  // TODO: implement
+  // IoEngineRef share()
+
+  // Register a handle in IO queue
+  // TODO: make it private (since it's windows-only)
   std::error_code add(Handle h, void* context);
+
+  // TODO: move implementation of methods from Socket to here
+  // accept()
+  // send()
+  // recv()
 
   // returns 0 on timeout
   std::size_t wait(CompletionEvent* events, std::size_t n, std::size_t timeout_ms);
