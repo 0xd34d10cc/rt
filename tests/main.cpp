@@ -1,7 +1,7 @@
 #include <iostream>
 #include <system_error>
 
-#include "rt/executor.hpp"
+#include "rt/worker.hpp"
 #include "rt/io_queue.hpp"
 #include "rt/socket.hpp"
 
@@ -105,7 +105,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  rt::Executor executor{std::move(*queue)};
+  rt::Worker executor{std::move(*queue)};
   executor.spawn(HelloWorldServer{{127, 0, 0, 1}, 1337});
   executor.spawn(HelloWorldServer{{127, 0, 0, 1}, 8080});
   executor.run();

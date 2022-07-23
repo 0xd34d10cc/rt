@@ -27,7 +27,7 @@ class IoQueue {
   static Result<IoQueue> create();
 
   // TODO: implement
-  // IoEngineRef share()
+  // IoEngine share()
 
   // Register a handle in IO queue
   // TODO: make it private (since it's windows-only)

@@ -12,7 +12,7 @@
 
 
 namespace rt {
-class Executor;
+class Worker;
 
 namespace detail {
 
@@ -37,7 +37,7 @@ struct Task {
   std::size_t fn_size{0};
   char* stack{nullptr};
 
-  Executor* owner{nullptr};
+  Worker* owner{nullptr};
   Task* next{nullptr};
 
   ~Task() { reset(); }

@@ -57,14 +57,14 @@ struct TaskList {
 
 Task* current_task();
 
-class Executor {
+class Worker {
  public:
-  Executor(IoQueue queue);
-  Executor(const Executor&) = delete;
-  Executor(Executor&&) = delete;
-  Executor& operator=(const Executor&) = delete;
-  Executor& operator=(Executor&&) = delete;
-  ~Executor();
+  Worker(IoQueue queue);
+  Worker(const Worker&) = delete;
+  Worker(Worker&&) = delete;
+  Worker& operator=(const Worker&) = delete;
+  Worker& operator=(Worker&&) = delete;
+  ~Worker();
 
   template <typename F>
   void spawn(F&& fn) {
@@ -78,9 +78,11 @@ class Executor {
   friend struct Task;
 
  private:
-  CpuContext* main();
+  void run(CpuContext* current);
+  bool wait_io();
 
-  void run_task(Task* task);
+  Task* next_task();
+  void run_task(Task* task, CpuContext* current);
   void init_task(Task* task);
 
   Task* allocate_task();
@@ -90,7 +92,7 @@ class Executor {
   std::size_t m_io_blocked{0};
   CpuContext m_main{};
   TaskList m_freelist{}; // cached free tasks
-                         // TODO: add a limit to how many tasks can be cached
+                         // TODO: add a limit on how many tasks can be cached
   TaskList m_ready{};    // ready tasks
 };
 

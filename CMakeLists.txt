@@ -10,8 +10,8 @@ add_executable(rt
   tests/main.cpp
   rt/cpu_context.hpp
   rt/cpu_context_win64.asm
-  rt/executor.hpp
-  rt/executor.cpp
+  rt/worker.hpp
+  rt/worker.cpp
   rt/io_queue.hpp
   rt/handle.hpp
   rt/io_queue.cpp
