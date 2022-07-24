@@ -24,12 +24,8 @@ void Task::yield() {
   owner->run(&this->context);
 }
 
-std::error_code Task::register_io(Handle h) {
-  return owner->m_queue.add(h, this);
-}
-
 void Task::block_on_io() {
-  // NOTE: task ptr should be already saved in m_queue
+  // NOTE: task ptr should be already saved in m_io
   ++owner->m_io_blocked;
   owner->run(&this->context);
 }
@@ -44,7 +40,7 @@ void task_main(Task* task) {
   task->finalize();
 }
 
-Worker::Worker(IoQueue queue) : m_queue(std::move(queue)) {}
+Worker::Worker(IoEngine io) : m_io(std::move(io)) {}
 
 Worker::~Worker() {
   const auto free_task = [](Task* task) {
@@ -79,7 +75,7 @@ bool Worker::wait_io() {
   constexpr std::size_t wait_ms = static_cast<std::size_t>(-1);  // infinite
 
   rt::CompletionEvent events[n_events];
-  std::size_t n = m_queue.wait(events, n_events, wait_ms);
+  std::size_t n = m_io.wait(events, n_events, wait_ms);
   assert(n != 0);
   for (std::size_t i = 0; i < n; ++i) {
     --m_io_blocked;

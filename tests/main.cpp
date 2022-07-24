@@ -2,7 +2,7 @@
 #include <system_error>
 
 #include "rt/worker.hpp"
-#include "rt/io_queue.hpp"
+#include "rt/io_engine.hpp"
 #include "rt/socket.hpp"
 
 
@@ -99,13 +99,13 @@ struct HelloWorldServer {
 
 int main() {
   // actual code
-  auto queue = rt::IoQueue::create();
-  if (auto e = queue.err()) {
-    std::cout << "Failed to create IoQueue: " << e.message() << std::endl;
+  auto io = rt::IoEngine::create();
+  if (auto e = io.err()) {
+    std::cout << "Failed to create IoEngine: " << e.message() << std::endl;
     return EXIT_FAILURE;
   }
 
-  rt::Worker executor{std::move(*queue)};
+  rt::Worker executor{std::move(*io)};
   executor.spawn(HelloWorldServer{{127, 0, 0, 1}, 1337});
   executor.spawn(HelloWorldServer{{127, 0, 0, 1}, 8080});
   executor.run();

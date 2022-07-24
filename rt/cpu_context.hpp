@@ -6,7 +6,7 @@
 namespace rt {
 
 using std::uint64_t;
-struct uint128_t {
+struct alignas(16) uint128_t {
   uint64_t low;
   uint64_t high;
 };

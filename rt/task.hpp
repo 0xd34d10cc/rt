@@ -76,9 +76,6 @@ struct Task {
 
   void finalize();
   void yield();
-
-  // TODO: move to IoEngine
-  std::error_code register_io(Handle h);
   void block_on_io();
 };
 }  // namespace rt

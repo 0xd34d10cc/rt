@@ -8,7 +8,7 @@
 
 #include "handle.hpp"
 #include "cpu_context.hpp"
-#include "io_queue.hpp"
+#include "io_engine.hpp"
 #include "task.hpp"
 
 
@@ -59,7 +59,7 @@ Task* current_task();
 
 class Worker {
  public:
-  Worker(IoQueue queue);
+  Worker(IoEngine io);
   Worker(const Worker&) = delete;
   Worker(Worker&&) = delete;
   Worker& operator=(const Worker&) = delete;
@@ -77,6 +77,8 @@ class Worker {
 
   friend struct Task;
 
+  IoEngine* io() noexcept { return &m_io; }
+
  private:
   void run(CpuContext* current);
   bool wait_io();
@@ -88,7 +90,7 @@ class Worker {
   Task* allocate_task();
   void release_task(Task* task);
 
-  IoQueue m_queue;
+  IoEngine m_io;
   std::size_t m_io_blocked{0};
   CpuContext m_main{};
   TaskList m_freelist{}; // cached free tasks
