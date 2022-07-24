@@ -1,8 +1,7 @@
 #include <iostream>
 #include <system_error>
 
-#include "rt/worker.hpp"
-#include "rt/io_engine.hpp"
+#include "rt/runtime.hpp"
 #include "rt/socket.hpp"
 
 
@@ -98,16 +97,13 @@ struct HelloWorldServer {
 };
 
 int main() {
-  // actual code
-  auto io = rt::IoEngine::create();
-  if (auto e = io.err()) {
-    std::cout << "Failed to create IoEngine: " << e.message() << std::endl;
+  auto runtime = rt::Runtime::create();
+  if (auto e = runtime.err()) {
+    std::cout << "Failed to initialize runtime: " << e.message() << std::endl;
     return EXIT_FAILURE;
   }
 
-  rt::Worker executor{std::move(*io)};
-  executor.spawn(HelloWorldServer{{127, 0, 0, 1}, 1337});
-  executor.spawn(HelloWorldServer{{127, 0, 0, 1}, 8080});
-  executor.run();
+  runtime->spawn(HelloWorldServer{{0, 0, 0, 0}, 8080});
+  runtime->run();
   return EXIT_SUCCESS;
 }

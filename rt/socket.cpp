@@ -64,7 +64,8 @@ Result<Socket> Socket::bind(IpAddr ip, Port port) noexcept {
 void Socket::close() noexcept {
   if (valid()) {
     closesocket(m_socket);
-    m_bound = nullptr;
+    m_task = nullptr;
+    m_engine = nullptr;
     m_socket = INVALID_SOCKET;
   }
 }
@@ -80,12 +81,9 @@ Result<std::size_t> Socket::send(const char* data, std::size_t n) noexcept {
 }
 
 std::error_code Socket::send_all(const char* data, std::size_t n) noexcept {
-  auto* task = current_task();
-  auto* io = task->owner->io();
-
   std::size_t sent = 0;
   while (sent < n) {
-    const auto s = io->send(task, this, data + sent, n - sent);
+    const auto s = send(data + sent, n - sent);
     if (auto e = s.err()) {
       return e;
     }

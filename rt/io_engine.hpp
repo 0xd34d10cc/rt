@@ -23,15 +23,12 @@ class IoEngine {
   IoEngine(IoEngine&&) noexcept = default;
   IoEngine& operator=(const IoEngine&) = delete;
   IoEngine& operator=(IoEngine&&) noexcept = default;
-  ~IoEngine() noexcept;
+  ~IoEngine() noexcept = default;
 
   static Result<IoEngine> create() noexcept;
 
   Result<IoEngine> share() noexcept;
 
-  // Register a handle in IO queue
-  // TODO: make it private (since it's windows-only)
-  std::error_code add(Handle h, void* context) noexcept;
 
   Result<Socket> accept(Task* task, Socket* s) noexcept;
   Result<std::size_t> send(Task* task, Socket* s, const char* data, std::size_t n) noexcept;
@@ -45,11 +42,12 @@ class IoEngine {
   std::size_t wait(CompletionEvent* events, std::size_t n, std::size_t timeout_ms) noexcept;
 private:
   IoEngine(Handle h) noexcept;
-  std::error_code lazy_register(Task* task, Socket* s) noexcept;
 
+  std::error_code lazy_register(Task* task, Socket* s) noexcept;
+  std::error_code add(Handle h, void* context) noexcept;
+  std::error_code remove(Handle h) noexcept;
 
   HandleOwner m_iocp;
-  bool m_shared{true};
 };
 
 

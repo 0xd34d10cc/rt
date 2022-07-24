@@ -19,6 +19,10 @@ add_executable(rt
   rt/socket.hpp
   rt/socket.cpp
   rt/task.hpp
+  rt/runtime.hpp
+  rt/runtime.cpp
+  rt/random.hpp
+  rt/worker_queue.hpp
 )
 
 target_include_directories(rt PRIVATE .)
@@ -29,5 +33,5 @@ if (WIN32)
 	PRIVATE WIN32_LEAN_AND_MEAN
 	PRIVATE _WINSOCK_DEPRECATED_NO_WARNINGS
   )
-  target_link_libraries(rt PRIVATE ws2_32 mswsock)
+  target_link_libraries(rt PRIVATE ws2_32 mswsock ntdll)
 endif()

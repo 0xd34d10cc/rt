@@ -3,14 +3,31 @@
 
 #include <mswsock.h>
 
-#if 0
 #include <iostream>
+
+#if 0
 #define TRACE_BLOCK                                                    \
   std::cout << __func__ << ": blocking task " << (void*)task << " on " \
             << (void*)&overlapped << std::endl
 #else
 #define TRACE_BLOCK
 #endif
+
+extern "C" {
+struct IO_STATUS_BLOCK {
+  void* status{nullptr};
+  void* information{nullptr};
+};
+
+struct FILE_INFORMATION {
+  HANDLE h{nullptr};
+  void* key{nullptr};
+};
+
+std::uint32_t NtSetInformationFile(HANDLE file_handle, IO_STATUS_BLOCK* block,
+                                   FILE_INFORMATION* file_info,
+                                   std::uint32_t len, unsigned cls);
+}
 
 
 namespace rt {
@@ -39,6 +56,7 @@ static void init_sockets() {
     SocketInitializer() {
       WSADATA wsaData;
       status = ::WSAStartup(MAKEWORD(2, 2), &wsaData);
+      assert(!status);
       if (!status) {
         SOCKET dummy = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0,
                                    WSA_FLAG_OVERLAPPED);
@@ -55,13 +73,7 @@ static void init_sockets() {
   return;
 }
 
-IoEngine::IoEngine(Handle h) noexcept : m_iocp{h} { init_sockets(); }
-
-IoEngine::~IoEngine() noexcept {
-  if (m_shared) {
-    m_iocp.release();
-  }
-}
+IoEngine::IoEngine(Handle h) noexcept : m_iocp{h} { }
 
 Result<IoEngine> IoEngine::create() noexcept {
   Handle h = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);
@@ -69,12 +81,15 @@ Result<IoEngine> IoEngine::create() noexcept {
     return last_os_error();
   }
 
+  init_sockets();
+
   auto io = IoEngine{h};
-  io.m_shared = false;
   return io;
 }
 
-Result<IoEngine> IoEngine::share() noexcept { return IoEngine{m_iocp.get()}; }
+Result<IoEngine> IoEngine::share() noexcept {
+  return create();
+}
 
 std::error_code IoEngine::add(Handle h, void* context) noexcept {
   const auto key = reinterpret_cast<ULONG_PTR>(context);
@@ -86,15 +101,33 @@ std::error_code IoEngine::add(Handle h, void* context) noexcept {
   return {};
 }
 
-std::error_code IoEngine::lazy_register(Task* task, Socket* s) noexcept {
-  if (!s->m_bound) {
-    if (auto e = add(s->handle(), task)) {
-      return e;
-    }
+std::error_code IoEngine::remove(Handle h) noexcept {
+  IO_STATUS_BLOCK status{};
+  FILE_INFORMATION fi {};
+  constexpr unsigned FileReplaceCompletionInformation = 61;
+  NtSetInformationFile(h, &status, &fi, sizeof(fi),
+                       FileReplaceCompletionInformation);
+  return {}; // FIXME: check error
+}
 
-    s->m_bound = task;
+std::error_code IoEngine::lazy_register(Task* task, Socket* s) noexcept {
+  if (s->m_engine == this && s->m_task == task) {
+    // should be most common case
+    return {};
   }
 
+  if (s->m_engine) {
+    s->m_engine->remove(s->handle());
+  }
+
+  if (auto e = add(s->handle(), task)) {
+    s->m_task = nullptr;
+    s->m_engine = nullptr;
+    return e;
+  }
+
+  s->m_task = task;
+  s->m_engine = this;
   return {};
 }
 

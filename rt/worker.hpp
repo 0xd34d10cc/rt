@@ -9,18 +9,35 @@
 #include "handle.hpp"
 #include "cpu_context.hpp"
 #include "io_engine.hpp"
+#include "worker_queue.hpp"
 #include "task.hpp"
+#include "random.hpp"
 
+#if 0
+#include <iostream>
+#define TRACE_TASK(t, msg) \
+  std::cout << "Task[" << (void*)(t->owner) << "|" << (void*)(t) << "]: " msg "\n"
+#else
+#define TRACE_TASK(t, msg) \
+  do {                     \
+  } while (false)
+#endif
 
 namespace rt {
 
 struct TaskList {
+  TaskList() noexcept = default;
+  TaskList(TaskList&& other) noexcept : first(other.first), last(other.last) {
+    other.first = nullptr;
+    other.last = nullptr;
+  }
+
   Task* first{nullptr};
   Task* last{nullptr};
 
-  bool empty() const { return first == nullptr; }
+  bool empty() const noexcept { return first == nullptr; }
 
-  Task* pop_front() {
+  Task* pop_front() noexcept {
     auto* task = first;
     if (task) {
       first = task->next;
@@ -34,7 +51,7 @@ struct TaskList {
     return task;
   }
 
-  void push_front(Task* task) {
+  void push_front(Task* task) noexcept {
     task->next = first;
     first = task;
 
@@ -43,7 +60,7 @@ struct TaskList {
     }
   }
 
-  void push_back(Task* task) {
+  void push_back(Task* task) noexcept {
     if (!last) {
       first = task;
       last = task;
@@ -59,43 +76,58 @@ Task* current_task();
 
 class Worker {
  public:
-  Worker(IoEngine io);
+  Worker(IoEngine io) noexcept;
   Worker(const Worker&) = delete;
-  Worker(Worker&&) = delete;
+  Worker(Worker&&) noexcept = default;
   Worker& operator=(const Worker&) = delete;
   Worker& operator=(Worker&&) = delete;
-  ~Worker();
+  ~Worker() noexcept;
 
   template <typename F>
   void spawn(F&& fn) {
     auto* task = allocate_task();
     task->set(std::forward<F>(fn));
     init_task(task);
-    m_ready.push_back(task);
+    TRACE_TASK(task, "allocated");
+    m_ready.push(task);
   }
-  void run();
+
+  void run(Worker** workers, std::size_t n) noexcept;
 
   friend struct Task;
 
+  Task* steal() noexcept {
+    auto* task = m_ready.steal();
+    if (task) {
+      TRACE_TASK(task, "stolen");
+      task->owner = nullptr;
+    }
+    return task;
+  }
   IoEngine* io() noexcept { return &m_io; }
 
  private:
-  void run(CpuContext* current);
-  bool wait_io();
+  void run(CpuContext* current) noexcept;
+  bool wait_io() noexcept;
 
-  Task* next_task();
-  void run_task(Task* task, CpuContext* current);
-  void init_task(Task* task);
+  Task* next_task() noexcept;
+  Task* try_steal() noexcept;
+  void run_task(Task* task, CpuContext* current) noexcept;
+  void init_task(Task* task) noexcept;
 
-  Task* allocate_task();
-  void release_task(Task* task);
+  Task* allocate_task() noexcept;
+  void release_task(Task* task) noexcept;
 
   IoEngine m_io;
   std::size_t m_io_blocked{0};
   CpuContext m_main{};
-  TaskList m_freelist{}; // cached free tasks
-                         // TODO: add a limit on how many tasks can be cached
-  TaskList m_ready{};    // ready tasks
+  TaskList m_freelist{};  // cached free tasks
+                          // TODO: add a limit on how many tasks can be cached
+  WorkerQueue m_ready{};  // ready tasks
+
+  XorShiftRng m_rng{};
+  Worker** m_workers{nullptr};
+  std::size_t m_n_workers{0};
 };
 
 void yield();

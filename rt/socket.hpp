@@ -25,8 +25,11 @@ class Socket {
   Socket(SOCKET s) noexcept : m_socket(s) {}
   Socket(const Socket&) = delete;
   Socket(Socket&& other) noexcept
-      : m_bound{other.m_bound}, m_socket{other.m_socket} {
-    other.m_bound = nullptr;
+      : m_task{other.m_task},
+        m_engine(other.m_engine),
+        m_socket{other.m_socket} {
+    other.m_task = nullptr;
+    other.m_engine = nullptr;
     other.m_socket = INVALID_SOCKET;
   }
   Socket& operator=(const Socket&) = delete;
@@ -36,7 +39,8 @@ class Socket {
     }
 
     close();
-    std::swap(m_bound, other.m_bound);
+    std::swap(m_task, other.m_task);
+    std::swap(m_engine, other.m_engine);
     std::swap(m_socket, other.m_socket);
     return *this;
   }
@@ -57,7 +61,8 @@ class Socket {
  private:
   static Result<Socket> create() noexcept;
 
-  Task* m_bound{nullptr};
+  Task* m_task{nullptr};
+  IoEngine* m_engine{nullptr};
   SOCKET m_socket{INVALID_SOCKET};
 };
 
